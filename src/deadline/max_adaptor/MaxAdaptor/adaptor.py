@@ -36,7 +36,11 @@ class MaxNotRunningError(Exception):
 
 
 # Renderer needs extra steps
-_FIRST_MAX_ACTIONS = ["scene_file", "state_set"]  # Actions which must be queued before any others
+_FIRST_MAX_ACTIONS = [
+    "scene_file",
+    "state_set",
+    "scene_state",
+]  # Actions which must be queued before any others
 
 # Render elements feature on/off control key
 _ENABLED_MODIFY_RENDER_ELEMENTS_KEY = "enabled_modify_render_elements"
@@ -63,7 +67,8 @@ _MAX_INIT_KEYS = {
     "output_file_path",
     "output_file_name",
     "output_file_format",
-    "batch_render_view",
+    "preset_file",
+    "pixel_aspect",
 }
 
 
@@ -102,7 +107,7 @@ class MaxAdaptor(Adaptor[AdaptorConfiguration]):
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
-        return SemanticVersion(major=0, minor=2)
+        return SemanticVersion(major=0, minor=3)
 
     @staticmethod
     def _get_timer(timeout: int | float) -> Callable[[], bool]:
@@ -293,7 +298,7 @@ class MaxAdaptor(Adaptor[AdaptorConfiguration]):
         python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
         if "PYTHONPATH" in os.environ:
             os.environ["PYTHONPATH"] = (
-                f"{os.environ['PYTHONPATH']}{os.pathsep}{python_path_addition}"
+                f"{python_path_addition}{os.pathsep}{os.environ['PYTHONPATH']}"
             )
         else:
             os.environ["PYTHONPATH"] = python_path_addition
@@ -317,7 +322,8 @@ class MaxAdaptor(Adaptor[AdaptorConfiguration]):
         )
 
         for action_name in _FIRST_MAX_ACTIONS:
-            self._action_queue.enqueue_action(self._action_from_action_item(action_name))
+            if action_name in self.init_data:
+                self._action_queue.enqueue_action(self._action_from_action_item(action_name))
 
         for action_name in _MAX_INIT_KEYS:
             if action_name in self.init_data:
@@ -378,19 +384,19 @@ class MaxAdaptor(Adaptor[AdaptorConfiguration]):
 
         for log_file in log_files:
             try:
-                with open(log_file, "r", errors="replace") as f:
-                    lines = f.readlines()
-                tail = lines[-10000:] if len(lines) > 10000 else lines
                 _logger.info("--- Begin 3ds Max Full Log (%s) ---", log_file)
-                for line in tail:
-                    line = line.rstrip("\n")
-                    if len(line) <= _MAX_LOG_LINE_LENGTH:
-                        _logger.info(line)
-                    else:
-                        # Split long lines into chunks to prevent truncation
-                        for i in range(0, len(line), _MAX_LOG_LINE_LENGTH):
-                            chunk = line[i : i + _MAX_LOG_LINE_LENGTH]
-                            _logger.info(chunk if i == 0 else f"\t{chunk}")
+                with open(log_file, "r", errors="replace") as f:
+                    line = f.readline()
+                    while line != "":
+                        line = line.rstrip("\n")
+                        if len(line) <= _MAX_LOG_LINE_LENGTH:
+                            _logger.info(line)
+                        else:
+                            # Split long lines into chunks to prevent truncation
+                            for i in range(0, len(line), _MAX_LOG_LINE_LENGTH):
+                                chunk = line[i : i + _MAX_LOG_LINE_LENGTH]
+                                _logger.info(chunk if i == 0 else f"\t{chunk}")
+                        line = f.readline()
                 _logger.info("--- End 3ds Max Full Log ---")
             except OSError as e:
                 _logger.warning("Failed to read Max.log at %s: %s", log_file, e)
