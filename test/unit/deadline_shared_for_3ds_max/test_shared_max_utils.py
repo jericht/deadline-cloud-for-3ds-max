@@ -10,9 +10,29 @@ import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from deadline.max_shared.utilities.max_utils import (
+    BatchRenderView,
+    RenderElementConfigurationSettings,
+    RenderElementInfo,
+    VRayRenderElementSettings,
     _configure_render_element_outputs_filename,
     _is_renderer_vray,
+    _view_to_batch_render_view,
+    configure_vray_raw_output,
+    configure_vray_render_elements,
+    get_batch_render_views,
+    get_render_elements,
+    is_vray_raw_output_format,
+    purify_render_element_name,
+    validate_render_element_configuration,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_rt():
+    """Mock the pymxs runtime for all tests."""
+    with patch("deadline.max_shared.utilities.max_utils.rt") as mock:
+        mock.undefined = object()
+        yield mock
 
 
 # Test that imports work correctly from both shared and submitter modules
@@ -52,8 +72,6 @@ def test_submitter_utilities_import():
 
 def test_purify_render_element_name():
     """Test the render element name purification function."""
-    from deadline.max_shared.utilities.max_utils import purify_render_element_name
-
     # Test normal name
     assert purify_render_element_name("Normal_Name") == "Normal_Name"
 
@@ -73,8 +91,6 @@ def test_purify_render_element_name():
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_get_render_elements_no_manager(mock_rt):
     """Test get_render_elements when no render element manager is available."""
-    from deadline.max_shared.utilities.max_utils import get_render_elements
-
     # Mock no render element manager
     mock_rt.maxOps.GetCurRenderElementMgr.return_value = None
 
@@ -84,17 +100,11 @@ def test_get_render_elements_no_manager(mock_rt):
 
 def test_validate_render_element_configuration():
     """Test render element configuration validation."""
-    from deadline.max_shared.utilities.max_utils import (
-        validate_render_element_configuration,
-        RenderElementConfigurationSettings,
-    )
-
     # Test with empty render elements
     warnings = validate_render_element_configuration([], RenderElementConfigurationSettings())
     assert warnings == []
 
     # Test with ignore by name settings
-    from deadline.max_shared.utilities.max_utils import RenderElementInfo
 
     render_elements = [
         RenderElementInfo(
@@ -169,8 +179,6 @@ def _create_mock_vray_render_element(
     name: str, element_type: str, enabled: bool = True, index: int = 0
 ):
     """Helper to create mock VRay render element with proper structure."""
-    from deadline.max_shared.utilities.max_utils import RenderElementInfo
-
     # Create mock pymxs object
     mock_element_obj = Mock()
     mock_element_obj.enabled = enabled
@@ -204,11 +212,6 @@ def test_configure_vray_render_elements(
     mock_rt: MagicMock, vfb_control: bool, split_buffer: bool
 ) -> None:
     """Test configure_vray_render_elements with different VFB and split buffer settings."""
-    from deadline.max_shared.utilities.max_utils import (
-        configure_vray_render_elements,
-        VRayRenderElementSettings,
-    )
-
     # GIVEN - Mock VRay renderer with actual renderer string
     # Set up renderer mock that returns string for str() but has properties
     mock_renderer = MagicMock()
@@ -292,11 +295,6 @@ def test_configure_vray_render_elements(
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_render_elements_with_ignore_list(mock_rt: MagicMock) -> None:
     """Test configure_vray_render_elements correctly disables ignored elements."""
-    from deadline.max_shared.utilities.max_utils import (
-        configure_vray_render_elements,
-        VRayRenderElementSettings,
-    )
-
     # GIVEN - Mock VRay renderer with actual renderer string
     # Set up renderer mock that returns string for str() but has properties
     mock_renderer = MagicMock()
@@ -361,8 +359,6 @@ def _create_mock_standard_render_element(
     name: str, element_type: str, enabled: bool = True, index: int = 0
 ):
     """Helper to create mock standard (non-VRay) render element."""
-    from deadline.max_shared.utilities.max_utils import RenderElementInfo
-
     # Create mock pymxs object
     mock_element_obj = Mock()
     mock_element_obj.enabled = enabled
@@ -433,10 +429,6 @@ def test_configure_render_element_outputs_filename(mock_rt: MagicMock) -> None:
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_render_element_outputs_filename_with_ignore_list(mock_rt: MagicMock) -> None:
     """Test _configure_render_element_outputs_filename skips ignored elements."""
-    from deadline.max_shared.utilities.max_utils import (
-        _configure_render_element_outputs_filename,
-    )
-
     # GIVEN - Mock render element manager
     mock_re_manager = Mock()
     mock_rt.maxOps.GetCurRenderElementMgr.return_value = mock_re_manager
@@ -501,10 +493,6 @@ def test_configure_render_element_outputs_filename_with_ignore_list(mock_rt: Mag
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_render_element_outputs_filename_with_special_characters(mock_rt):
     """Test _configure_render_element_outputs_filename handles special characters in element names."""
-    from deadline.max_shared.utilities.max_utils import (
-        _configure_render_element_outputs_filename,
-    )
-
     # GIVEN - Mock render element manager
     mock_re_manager = Mock()
     mock_rt.maxOps.GetCurRenderElementMgr.return_value = mock_re_manager
@@ -555,11 +543,6 @@ def test_configure_render_element_outputs_filename_with_special_characters(mock_
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_render_elements_sets_rt_settings(mock_rt: MagicMock) -> None:
     """Test configure_vray_render_elements sets both standard and RT settings."""
-    from deadline.max_shared.utilities.max_utils import (
-        configure_vray_render_elements,
-        VRayRenderElementSettings,
-    )
-
     # GIVEN - Mock V-Ray RT renderer
     mock_renderer = MagicMock()
     mock_renderer.classid = "#(1770671000, 1323107829)"
@@ -641,16 +624,12 @@ def test_configure_vray_render_elements_sets_rt_settings(mock_rt: MagicMock) -> 
 )
 def test_is_vray_raw_output_format(output_format: str, expected: bool) -> None:
     """Test is_vray_raw_output_format correctly identifies raw output formats."""
-    from deadline.max_shared.utilities.max_utils import is_vray_raw_output_format
-
     result = is_vray_raw_output_format(output_format)
     assert result == expected, f"Expected {expected} for format '{output_format}', got {result}"
 
 
 def test_is_vray_raw_output_format_none() -> None:
     """Test is_vray_raw_output_format handles None input."""
-    from deadline.max_shared.utilities.max_utils import is_vray_raw_output_format
-
     # Should return False for None (empty string check)
     result = is_vray_raw_output_format("")
     assert result is False
@@ -659,8 +638,6 @@ def test_is_vray_raw_output_format_none() -> None:
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_raw_output_vrimg(mock_rt: MagicMock) -> None:
     """Test configure_vray_raw_output configures V-Ray for .vrimg output."""
-    from deadline.max_shared.utilities.max_utils import configure_vray_raw_output
-
     # GIVEN - Mock V-Ray renderer
     mock_renderer = MagicMock()
     mock_renderer.configure_mock(__str__=MagicMock(return_value="V_Ray_7_Hotfix_2"))
@@ -686,8 +663,6 @@ def test_configure_vray_raw_output_vrimg(mock_rt: MagicMock) -> None:
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_raw_output_exr(mock_rt: MagicMock) -> None:
     """Test configure_vray_raw_output configures V-Ray for .exr output."""
-    from deadline.max_shared.utilities.max_utils import configure_vray_raw_output
-
     # GIVEN - Mock V-Ray renderer
     mock_renderer = MagicMock()
     mock_renderer.configure_mock(__str__=MagicMock(return_value="V_Ray_7_Hotfix_2"))
@@ -713,8 +688,6 @@ def test_configure_vray_raw_output_exr(mock_rt: MagicMock) -> None:
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_raw_output_format_without_dot(mock_rt: MagicMock) -> None:
     """Test configure_vray_raw_output handles format without leading dot."""
-    from deadline.max_shared.utilities.max_utils import configure_vray_raw_output
-
     # GIVEN - Mock V-Ray renderer
     mock_renderer = MagicMock()
     mock_renderer.configure_mock(__str__=MagicMock(return_value="V_Ray_7_Hotfix_2"))
@@ -736,8 +709,6 @@ def test_configure_vray_raw_output_format_without_dot(mock_rt: MagicMock) -> Non
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_raw_output_vray_gpu(mock_rt: MagicMock) -> None:
     """Test configure_vray_raw_output works with V-Ray GPU (RT)."""
-    from deadline.max_shared.utilities.max_utils import configure_vray_raw_output
-
     # GIVEN - Mock V-Ray GPU renderer with nested V_Ray_settings
     mock_renderer = MagicMock()
     mock_renderer.configure_mock(__str__=MagicMock(return_value="V_Ray_GPU_7_Hotfix_2"))
@@ -773,8 +744,6 @@ def test_configure_vray_raw_output_vray_gpu(mock_rt: MagicMock) -> None:
 @patch("deadline.max_shared.utilities.max_utils.rt")
 def test_configure_vray_raw_output_handles_exception(mock_rt: MagicMock) -> None:
     """Test configure_vray_raw_output handles exceptions gracefully."""
-    from deadline.max_shared.utilities.max_utils import configure_vray_raw_output
-
     # GIVEN - Mock renderer that raises exception on property set
     mock_renderer = MagicMock()
     mock_renderer.configure_mock(__str__=MagicMock(return_value="V_Ray_7_Hotfix_2"))
@@ -825,8 +794,6 @@ class TestBatchRenderView:
         self, override_preset, frame_start, frame_end, width, height, expected
     ):
         """Verify has_all_overrides property correctly identifies complete overrides."""
-        from deadline.max_shared.utilities.max_utils import BatchRenderView
-
         item = BatchRenderView(
             name="Test",
             override_preset=override_preset,
@@ -842,16 +809,8 @@ class TestBatchRenderView:
 class TestViewToBatchRenderView:
     """Tests for _view_to_batch_render_view function."""
 
-    @pytest.fixture(autouse=True)
-    def mock_rt(self):
-        """Mock the pymxs runtime for all tests in this class."""
-        with patch("deadline.max_shared.utilities.max_utils.rt") as mock:
-            yield mock
-
     def test_converts_full_view(self, mock_rt):
         """Verify _view_to_batch_render_view converts a fully populated view."""
-        from deadline.max_shared.utilities.max_utils import _view_to_batch_render_view
-
         mock_view = Mock()
         mock_view.name = "TestView"
         mock_view.enabled = True
@@ -883,8 +842,6 @@ class TestViewToBatchRenderView:
 
     def test_uses_fallback_name(self, mock_rt):
         """Verify _view_to_batch_render_view uses fallback name when view.name is empty."""
-        from deadline.max_shared.utilities.max_utils import _view_to_batch_render_view
-
         mock_view = Mock()
         mock_view.name = ""
         mock_view.enabled = True
@@ -899,8 +856,6 @@ class TestViewToBatchRenderView:
 
     def test_handles_undefined_camera(self, mock_rt):
         """Verify _view_to_batch_render_view handles undefined camera."""
-        from deadline.max_shared.utilities.max_utils import _view_to_batch_render_view
-
         mock_view = Mock()
         mock_view.name = "Test"
         mock_view.enabled = True
@@ -915,8 +870,6 @@ class TestViewToBatchRenderView:
 
     def test_handles_scene_state_attribute(self, mock_rt):
         """Verify _view_to_batch_render_view handles sceneState attribute (adaptor context)."""
-        from deadline.max_shared.utilities.max_utils import _view_to_batch_render_view
-
         mock_view = Mock(
             spec=[
                 "name",
@@ -942,8 +895,6 @@ class TestViewToBatchRenderView:
 
     def test_override_values_only_when_enabled(self, mock_rt):
         """Verify override values are only extracted when overridePreset is True."""
-        from deadline.max_shared.utilities.max_utils import _view_to_batch_render_view
-
         mock_view = Mock()
         mock_view.name = "Test"
         mock_view.enabled = True
@@ -966,20 +917,11 @@ class TestViewToBatchRenderView:
         assert result.pixel_aspect is None
 
 
-class TestGetbatchRenderviews:
+class TestGetBatchRenderViews:
     """Tests for get_batch_render_views function."""
-
-    @pytest.fixture(autouse=True)
-    def mock_rt(self):
-        """Mock the pymxs runtime for all tests in this class."""
-        with patch("deadline.max_shared.utilities.max_utils.rt") as mock:
-            mock.undefined = object()
-            yield mock
 
     def test_returns_all_items(self, mock_rt):
         """Verify get_batch_render_items returns all batch views."""
-        from deadline.max_shared.utilities.max_utils import get_batch_render_views
-
         mock_view1 = Mock()
         mock_view1.name = "View1"
         mock_view1.enabled = True
@@ -1011,8 +953,6 @@ class TestGetbatchRenderviews:
 
     def test_raises_when_manager_unavailable(self, mock_rt):
         """Verify get_batch_render_views raises when Batch Render Manager is unavailable."""
-        from deadline.max_shared.utilities.max_utils import get_batch_render_views
-
         mock_rt.batchRenderMgr = None
 
         with pytest.raises(RuntimeError, match="Batch Render Manager not available"):
@@ -1020,8 +960,6 @@ class TestGetbatchRenderviews:
 
     def test_raises_when_view_not_found(self, mock_rt):
         """Verify get_batch_render_views raises when a view cannot be retrieved."""
-        from deadline.max_shared.utilities.max_utils import get_batch_render_views
-
         mock_batch_mgr = Mock()
         mock_batch_mgr.numViews = 1
         mock_batch_mgr.getView.return_value = None

@@ -90,6 +90,17 @@ class TestStepData:
 
         assert step_data.name == "BatchRender001"
 
+    def test_name_raises_without_state_set_or_batch_view(self):
+        """Verify name raises RuntimeError when neither state_set nor batch_view is set."""
+        step_data = StepData(
+            frame_range="1-100",
+            width=1920,
+            height=1080,
+        )
+
+        with pytest.raises(RuntimeError, match="Step has no name"):
+            _ = step_data.name
+
 
 class TestRenderSubmitterUISettings:
     """Tests for RenderSubmitterUISettings sticky settings with nested dataclasses."""

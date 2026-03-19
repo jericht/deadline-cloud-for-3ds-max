@@ -6,6 +6,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import re
@@ -374,7 +375,6 @@ class MaxAdaptor(Adaptor[AdaptorConfiguration]):
         Lines longer than _MAX_LOG_LINE_LENGTH are split into chunks to avoid any
         downstream truncation in log pipelines.
         """
-        import glob
 
         local_appdata = os.environ.get("LOCALAPPDATA", "")
         if not local_appdata:

@@ -172,19 +172,20 @@ def on_create_job_bundle_callback(
             for state_set in state_sets_to_submit:
                 state_set.frame_range = settings.frame_list
 
-        # Add render element output directories to output_directories set
-        if settings.render_elements and not settings.ignore_render_elements_by_name:
-            try:
-                render_element_dirs = get_render_elements_output_directories()
-                output_directories.update(render_element_dirs)
-                _logger.debug(f"Added render element output directories: {render_element_dirs}")
+    # Add render element output directories to output_directories set
+    # (applies to both Default and Batch Render modes)
+    if settings.render_elements and not settings.ignore_render_elements_by_name:
+        try:
+            render_element_dirs = get_render_elements_output_directories()
+            output_directories.update(render_element_dirs)
+            _logger.debug(f"Added render element output directories: {render_element_dirs}")
 
-                # Update state sets with render element directories
-                for state_set in state_sets_to_submit:
-                    state_set.output_directories.update(render_element_dirs)
+            # Update state sets with render element directories (Default mode only)
+            for state_set in state_sets_to_submit:
+                state_set.output_directories.update(render_element_dirs)
 
-            except Exception as e:
-                _logger.warning(f"Failed to get render element output directories: {e}")
+        except Exception as e:
+            _logger.warning(f"Failed to get render element output directories: {e}")
 
     # BATCH_RENDER mode: no state sets needed — job bundle functions read scene
     # defaults directly from the pymxs API and submitter UI settings

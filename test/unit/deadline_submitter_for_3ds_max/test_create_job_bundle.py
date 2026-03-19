@@ -8,14 +8,22 @@ from unittest.mock import Mock, patch
 import pytest
 
 from deadline.max_shared.utilities.max_utils import BatchRenderView
-from deadline.max_submitter.data_classes import SubmissionMode
+from deadline.max_submitter.create_job_bundle import (
+    _create_param_definitions,
+    _create_step_definitions,
+    _get_batch_view_settings,
+    _get_job_parameters,
+)
+from deadline.max_submitter.data_classes import (
+    StateSetData,
+    SubmissionMode,
+)
+from deadline.max_submitter.data_const import ALL_CAMERAS_STR
 
 
 @pytest.fixture
 def sample_state_set():
     """Create a sample StateSetData for testing."""
-    from deadline.max_submitter.data_classes import StateSetData
-
     return StateSetData(
         state_set="Default",
         renderer="V_Ray_6",
@@ -95,8 +103,6 @@ class TestCreateParamDefinitions:
         sample_state_set,
     ):
         """Verify step-specific parameters are created without batch rendering."""
-        from deadline.max_submitter.create_job_bundle import _create_param_definitions
-
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
 
@@ -127,8 +133,6 @@ class TestCreateParamDefinitions:
         sample_batch_view,
     ):
         """Verify step-specific parameters are created with batch rendering enabled."""
-        from deadline.max_submitter.create_job_bundle import _create_param_definitions
-
         mock_settings.submission_mode = SubmissionMode.BATCH_RENDER.value
         mock_settings.batch_render.enabled_views = ["TestBatchView"]
         mock_get_batch_views.return_value = [sample_batch_view]
@@ -155,8 +159,6 @@ class TestCreateParamDefinitions:
         sample_state_set,
     ):
         """Verify Camera parameter is added when a specific camera is selected."""
-        from deadline.max_submitter.create_job_bundle import _create_param_definitions
-
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
         mock_settings.camera_selection = "Camera001"
@@ -179,9 +181,6 @@ class TestCreateParamDefinitions:
         sample_state_set,
     ):
         """Verify Camera parameter is NOT added when all cameras are selected."""
-        from deadline.max_submitter.create_job_bundle import _create_param_definitions
-        from deadline.max_submitter.data_const import ALL_CAMERAS_STR
-
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
         mock_settings.camera_selection = ALL_CAMERAS_STR
@@ -237,8 +236,6 @@ class TestCreateStepDefinitions:
         sample_state_set,
     ):
         """Verify steps are created without batch rendering."""
-        from deadline.max_submitter.create_job_bundle import _create_step_definitions
-
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
 
@@ -268,8 +265,6 @@ class TestCreateStepDefinitions:
         sample_batch_view,
     ):
         """Verify steps are created with batch rendering enabled (no state set)."""
-        from deadline.max_submitter.create_job_bundle import _create_step_definitions
-
         mock_settings.submission_mode = SubmissionMode.BATCH_RENDER.value
         mock_settings.batch_render.enabled_views = ["TestBatchView"]
         mock_get_batch_views.return_value = [sample_batch_view]
@@ -305,8 +300,6 @@ class TestCreateStepDefinitions:
         mock_settings,
     ):
         """Verify ValueError is raised when no state sets are provided in DEFAULT mode."""
-        from deadline.max_submitter.create_job_bundle import _create_step_definitions
-
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
 
@@ -324,8 +317,6 @@ class TestCreateStepDefinitions:
         sample_batch_view,
     ):
         """Verify no error when state_sets is empty in BATCH_RENDER mode."""
-        from deadline.max_submitter.create_job_bundle import _create_step_definitions
-
         mock_settings.submission_mode = SubmissionMode.BATCH_RENDER.value
         mock_settings.batch_render.enabled_views = ["TestBatchView"]
         mock_get_batch_views.return_value = [sample_batch_view]
@@ -343,8 +334,6 @@ class TestGetBatchViewSettings:
 
     def test_returns_state_set_defaults_without_preset_or_overrides(self):
         """Verify state set defaults are returned when no preset or overrides."""
-        from deadline.max_submitter.create_job_bundle import _get_batch_view_settings
-
         batch_view = BatchRenderView(name="Test", override_preset=False)
 
         result = _get_batch_view_settings(
@@ -360,8 +349,6 @@ class TestGetBatchViewSettings:
     @patch("deadline.max_submitter.create_job_bundle.max_utils.extract_settings_from_preset")
     def test_uses_preset_values_when_available(self, mock_extract):
         """Verify preset values are used when preset file is provided."""
-        from deadline.max_submitter.create_job_bundle import _get_batch_view_settings
-
         mock_extract.return_value = {
             "frame_range": "50-150",
             "width": 3840,
@@ -387,8 +374,6 @@ class TestGetBatchViewSettings:
 
     def test_override_values_take_precedence(self):
         """Verify override values take precedence over preset and state set."""
-        from deadline.max_submitter.create_job_bundle import _get_batch_view_settings
-
         batch_view = BatchRenderView(
             name="Test",
             override_preset=True,
@@ -411,8 +396,6 @@ class TestGetBatchViewSettings:
     @patch("deadline.max_submitter.create_job_bundle.max_utils.extract_settings_from_preset")
     def test_skips_preset_when_all_overrides_provided(self, mock_extract):
         """Verify preset loading is skipped when all overrides are provided."""
-        from deadline.max_submitter.create_job_bundle import _get_batch_view_settings
-
         batch_view = BatchRenderView(
             name="Test",
             preset_file="C:/presets/render.rps",
@@ -438,8 +421,6 @@ class TestGetBatchViewSettings:
     @patch("deadline.max_submitter.create_job_bundle.max_utils.extract_settings_from_preset")
     def test_falls_back_on_preset_error(self, mock_extract):
         """Verify fallback to state set defaults when preset loading fails."""
-        from deadline.max_submitter.create_job_bundle import _get_batch_view_settings
-
         mock_extract.side_effect = Exception("Failed to load preset")
 
         batch_view = BatchRenderView(
@@ -487,8 +468,6 @@ class TestGetJobParameters:
         sample_state_set,
     ):
         """Verify parameters are created without batch rendering."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
@@ -523,8 +502,6 @@ class TestGetJobParameters:
         sample_batch_view,
     ):
         """Verify progress dialog is created when processing batch views."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_frames.return_value = "1-100"
         mock_rt.renderWidth = 1920
@@ -567,9 +544,6 @@ class TestGetJobParameters:
         sample_state_set,
     ):
         """Verify Camera parameter is NOT added when all cameras are selected."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-        from deadline.max_submitter.data_const import ALL_CAMERAS_STR
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_batch_views.return_value = []
         mock_get_render_elements.return_value = []
@@ -603,8 +577,6 @@ class TestGetJobParameters:
         mock_settings,
     ):
         """Verify ValueError is raised when batch view camera does not exist in scene."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_frames.return_value = "1-100"
         mock_rt.renderWidth = 1920
@@ -656,8 +628,6 @@ class TestGetJobParameters:
         mock_settings,
     ):
         """Verify ValueError is raised when batch view scene state does not exist."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_frames.return_value = "1-100"
         mock_rt.renderWidth = 1920
@@ -708,8 +678,6 @@ class TestGetJobParameters:
         mock_settings,
     ):
         """Verify ValueError is raised when batch view preset file does not exist."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_frames.return_value = "1-100"
         mock_rt.renderWidth = 1920
@@ -757,8 +725,6 @@ class TestGetJobParameters:
         mock_settings,
     ):
         """Verify ValueError is raised when pixel aspect is not positive."""
-        from deadline.max_submitter.create_job_bundle import _get_job_parameters
-
         mock_get_scene_path.return_value = "C:/scenes/test.max"
         mock_get_frames.return_value = "1-100"
         mock_rt.renderWidth = 1920

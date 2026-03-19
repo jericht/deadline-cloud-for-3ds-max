@@ -165,11 +165,6 @@ class DefaultMaxHandler:
 
             output_name = self.reformat_framenumber_padding(output_name, frame)
 
-            # Let subclasses configure renderer-specific settings with the resolved name
-            self.log_to_console(
-                f"DEBUG start_render: output_dir='{self.output_dir}', output_name='{output_name}', output_format='{self.output_format}'"
-            )
-
             # If output_name is a full path (e.g. from batch view output_filename),
             # extract just the filename portion. The directory comes from self.output_dir.
             output_name = os.path.basename(output_name)
@@ -358,9 +353,6 @@ class DefaultMaxHandler:
         """
         Sets the output file path.
 
-        Note: Path mapping is already applied by Deadline Cloud to job parameter values
-        before they reach the adaptor, so no additional mapping is needed here.
-
         :param data: The data given from the Adaptor. Keys expected: ['output_file_path']
         :type data: dict
         """
@@ -445,9 +437,9 @@ class DefaultMaxHandler:
 
     def set_scene_state(self, data: dict) -> None:
         """
-        Restore a scene state via rt.sceneStateMgr.
+        Restore a scene state using the 3ds Max Scene State Manager.
 
-        This is distinct from set_state_set which uses the Autodesk.Max.StateSets.Plugin API.
+        This is distinct from set_state_set which uses State Sets.
         Scene states are used in batch render mode, while state sets are used in default mode.
 
         :param data: The data given from the Adaptor. Keys expected: ['scene_state']

@@ -299,6 +299,19 @@ def check_sanity_batch_render(settings: RenderSubmitterUISettings) -> list[str]:
             "Configure an output file for each enabled batch view."
         )
 
+    # Check for missing frame padding token in batch view output filenames
+    views_no_padding = [
+        item.name
+        for item in enabled_batch_views
+        if item.output_filename and "#" not in item.output_filename
+    ]
+    if views_no_padding:
+        names = ", ".join(views_no_padding)
+        warnings.append(
+            f"The following batch views have no frame padding token (#) in their output filename: {names}. "
+            "Each rendered frame will overwrite the previous one."
+        )
+
     # Check for conflicting output paths
     output_paths: dict[str, str] = {}
     for item in enabled_batch_views:
